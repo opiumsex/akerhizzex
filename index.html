@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Akermansex Team - Сайт сборок</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: black;
+      color: white;
+    }
+    .tabs {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      display: flex;
+      background: #111;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .tab.active {
+      background: white;
+      color: black;
+      font-weight: bold;
+      transform: scale(1.05);
+    }
+    .content {
+      padding: 20px;
+      padding-bottom: 80px;
+    }
+    .post {
+      background: white;
+      color: black;
+      border-radius: 20px;
+      padding: 10px;
+      margin-bottom: 20px;
+    }
+    .post img {
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+    .search {
+      margin-bottom: 20px;
+      padding: 10px;
+      width: 100%;
+      border-radius: 12px;
+      border: none;
+      background: #444;
+      color: white;
+    }
+    .button {
+      display: inline-block;
+      margin: 5px 10px 0 0;
+      padding: 10px 20px;
+      border-radius: 12px;
+      background: white;
+      color: black;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="content" id="app"></div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('assemblies')">Сборки</div>
+    <div class="tab" onclick="switchTab('redesigns')">Редизайны</div>
+    <div class="tab" onclick="switchTab('about')">О приложении</div>
+  </div>
+<script>
+const GITHUB_OWNER = "opiumsex";
+const GITHUB_REPO = "akerhizzex";
+const API_BASE = (folder) => 
+  \`https://api.github.com/repos/\${GITHUB_OWNER}/\${GITHUB_REPO}/contents/\${folder}\`;
+
+let currentTab = 'assemblies';
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab')[['assemblies','redesigns','about'].indexOf(tab)].classList.add('active');
+  loadContent();
+}
+
+async function fetchPosts(folder) {
+  const res = await fetch(API_BASE(folder));
+  const items = await res.json();
+  const posts = await Promise.all(items.map(async (item) => {
+    if (item.type !== 'dir') return null;
+    const filesRes = await fetch(\`\${API_BASE(folder)}/\${item.name}\`);
+    const files = await filesRes.json();
+    const getFile = (name) => files.find(f => f.name === name)?.download_url;
+    const [zag, post] = await Promise.all([
+      fetch(getFile("zag.txt")).then(r => r.text()),
+      fetch(getFile("post.txt")).then(r => r.text())
+    ]);
+    const banner = getFile("banner.png");
+    const zip = files.find(f => f.name.endsWith(".zip"))?.download_url;
+    return { title: zag.trim(), description: post.trim(), banner, download: zip };
+  }));
+  return posts.filter(Boolean);
+}
+
+async function loadContent() {
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  if (currentTab === "about") {
+    app.innerHTML = \`
+      <div style="text-align:center">
+        <a class="button" href="https://t.me/your_team_channel">Telegram</a>
+        <a class="button" href="https://github.com/opiumsex/akerhizzex">GitHub</a>
+      </div>
+      <p style="margin-top: 20px">
+        Это приложение команды Akermansex Team. Здесь вы можете найти сборки и редизайны, доступные для скачивания.
+      </p>\`;
+    return;
+  }
+
+  const folder = currentTab === "assemblies" ? "assembly" : "redesigns";
+  const posts = await fetchPosts(folder);
+  const searchInput = document.createElement("input");
+  searchInput.className = "search";
+  searchInput.placeholder = "Поиск...";
+  app.appendChild(searchInput);
+
+  const postsContainer = document.createElement("div");
+  app.appendChild(postsContainer);
+
+  const render = (list) => {
+    postsContainer.innerHTML = "";
+    list.forEach(post => {
+      const div = document.createElement("div");
+      div.className = "post";
+      div.innerHTML = \`
+        <img src="\${post.banner}" alt="">
+        <h2>\${post.title}</h2>
+        <p>\${post.description}</p>
+        <a href="\${post.download}" download class="button">Скачать</a>
+      \`;
+      postsContainer.appendChild(div);
+    });
+  };
+
+  searchInput.addEventListener("input", () => {
+    const q = searchInput.value.toLowerCase();
+    render(posts.filter(p => p.title.toLowerCase().includes(q)));
+  });
+
+  render(posts);
+}
+
+loadContent();
+</script>
+</body>
+</html>
